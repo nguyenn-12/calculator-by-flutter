@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:math_expressions/math_expressions.dart';
+import 'package:flutter/foundation.dart';
 
 void main() {
   runApp(const CalculatorApp());
@@ -30,18 +31,21 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
   String _output = "0";
   String _input = "0";
 
-  void _onButtonPressed(String value) {
+  void _onButtonPressed(String value) async {
     setState(() {
       if (value == "C") {
         _input = "0";
         _output = "0";
       } else if (value == "=") {
         try {
-          _output = _calculateResult(_input);
+          _calculateResult(_input);
           _input = _output;
         } catch (e) {
           _output = "Error";
         }
+      } else if (value == "!") {
+        _calculateFactorial(_input);
+        _input = _output;
       } else if (_output=="0"){
         _input += value;
         _output = value;
@@ -51,15 +55,46 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
       }
     });
   }
+  ///  **Tính kết quả trên Background Thread**
+  void _calculateResult(String input) async {
+    String result = await compute(_evaluateExpression, input);
+    setState(() {
+      _output = result;
+      _input = result;
+    });
+  }
 
-  String _calculateResult(String input) {
+  ///  **Tính giai thừa trên Background Thread**
+  void _calculateFactorial(String input) async {
+    String result = await compute(_factorial, input);
+    setState(() {
+      _output = result;
+      _input = result;
+    });
+  }
+  /// 🔹 **Hàm tính toán biểu thức** (chạy trên Isolate)
+  static String _evaluateExpression(String input) {
     try {
       input = input.replaceAll('×', '*').replaceAll('÷', '/');
-      ShuntingYardParser p = ShuntingYardParser();
+      Parser p = Parser();
       Expression exp = p.parse(input);
       ContextModel cm = ContextModel();
       double eval = exp.evaluate(EvaluationType.REAL, cm);
       return (eval % 1 == 0) ? eval.toInt().toString() : eval.toString();
+    } catch (e) {
+      return "Error";
+    }
+  }
+  ///  **Hàm tính giai thừa (chạy trên Isolate)**
+  static String _factorial(String input) {
+    try {
+      int num = int.parse(input);
+      if (num < 0) return "Error";
+      BigInt result = BigInt.one;
+      for (int i = 1; i <= num; i++) {
+        result *= BigInt.from(i);
+      }
+      return result.toString();
     } catch (e) {
       return "Error";
     }
@@ -134,6 +169,9 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                                                                                  e == "+" ? Color(0xFFF1719D) : Color(
                                                                                      0xFFCF5567) )).toList(),
               ),
+              Row(
+                children: ["^", "!"].map((e) => _buildButton(e, color: Color(0xFFF3A683))).toList(),
+              )
             ],
           )
         ],
